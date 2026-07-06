@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suite name="Selenium TestNG Suite" verbose="2" parallel="false">
+
+    <!-- Register Listeners -->
+    <listeners>
+        <!-- Retry Failed Tests -->
+        <listener class-name="com.example.listeners.RetryAnalyzer" />
+        
+        <!-- Transform Annotations at Runtime -->
+        <listener class-name="com.example.listeners.AnnotationTransformer" />
+        
+        <!-- Test Lifecycle Listener -->
+        <listener class-name="com.example.listeners.TestListener" />
+    </listeners>
+
+    <test name="Cucumber Tests" parallel="false">
+        <classes>
+            <class name="com.example.runners.TestRunner" />
+        </classes>
+    </test>
+
+</suite>
