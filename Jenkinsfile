@@ -1,6 +1,6 @@
 pipeline {
-    // Use a generic agent so the pipeline doesn't fail if a 'windows' labeled node
-    // is not present. Change to a specific label if your Jenkins has a Windows agent.
+    // Use agent any to allow pipeline to run on any available agent
+    // including Windows agents without needing a specific label
     agent any
     
     environment {
@@ -13,26 +13,19 @@ pipeline {
     parameters {
         // Allows you to pass specific Cucumber tags (e.g., @Smoke, @Regression, or not @WIP)
         string(name: 'CUCUMBER_TAGS', defaultValue: '@Smoke', description: 'Enter Cucumber tags to run')
-        // This pipeline checks out the main branch only.
-        // Optional: credentials id configured in Jenkins for accessing the git repo
-        string(name: 'GIT_CREDENTIALS_ID', defaultValue: 'sarita454', description: 'Optional: Jenkins credentialsId to use for git checkout')
     }
-
+    
     stages {
         stage('Checkout') {
             steps {
                 script {
-                    // Prefer the built-in 'git' step - use credentials only when provided.
-                    if (params.GIT_CREDENTIALS_ID?.trim()) {
-                        echo "Checking out repository with credentials id: ${params.GIT_CREDENTIALS_ID}"
-                        git branch: 'main', url: 'https://github.com/sarita454/SeleniumTestNGProject.git', credentialsId: params.GIT_CREDENTIALS_ID
-                    } else {
-                        echo 'Checking out repository without credentials'
-                        git branch: 'main', url: 'https://github.com/sarita454/SeleniumTestNGProject.git'
-                    }
+                    // Repository is already checked out by Multibranch Pipeline SCM
+                    echo 'Repository already checked out by Multibranch Pipeline SCM'
+                    echo "Current commit: ${env.GIT_COMMIT}"
+                    echo "Current branch: ${env.GIT_BRANCH}"
                 }
             }
-        } // This brace was previously closing the entire 'stages' block by mistake!
+        }
 
         stage('Create Directories') {
             steps {
@@ -49,23 +42,35 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Compiling and building the project...'
-                // Replace with your actual build command (e.g., mvn clean package, npm run build)
-                bat 'mvn clean compile'
+                // Use Maven wrapper (mvnw.bat) for Windows if available, otherwise fall back to mvn
+                bat '''
+                    if exist mvnw.bat (
+                        call mvnw.bat clean compile
+                    ) else (
+                        mvn clean compile
+                    )
+                '''
             }
         }
 
         stage('Test') {
             steps {
                 echo 'Running automated tests...'
-                // Example of running tests and redirecting logs to your log directory
-                bat "mvn test -Dcucumber.filter.tags=\"${params.CUCUMBER_TAGS}\" -Dmaven.test.failure.ignore=true"
+                // Use Maven wrapper (mvnw.bat) for Windows if available, otherwise fall back to mvn
+                bat '''
+                    if exist mvnw.bat (
+                        call mvnw.bat test -Dcucumber.filter.tags="''' + params.CUCUMBER_TAGS + '''" -Dmaven.test.failure.ignore=true
+                    ) else (
+                        mvn test -Dcucumber.filter.tags="''' + params.CUCUMBER_TAGS + '''" -Dmaven.test.failure.ignore=true
+                    )
+                '''
             }
         }
 
         stage('Publish Reports') {
             steps {
                 echo 'Generating test and coverage reports...'
-                // Example using Windows curl to fetch a report template or notify a dashboard
+                // Example using Windows curl to send build status
                 // Escaped double quotes (\\\") are required for Windows cmd JSON payloads
                 bat """
                     curl -X POST "https://example.com" ^
@@ -74,13 +79,12 @@ pipeline {
                 """
             }
         }
-    } // The stages block now correctly closes here, encompassing all steps.
+    }
         
     post {
         always {
-            // archiveArtifacts requires a workspace (hudson.FilePath). When the pipeline
-            // was never allocated a node (e.g. no matching label), this step fails
-            // with MissingContextVariableException. Guard with a check for WORKSPACE.
+            // archiveArtifacts requires a workspace (hudson.FilePath). 
+            // Guard with a check for WORKSPACE to prevent MissingContextVariableException.
             script {
                 if (env.WORKSPACE) {
                     echo 'Archiving test artifacts...'
@@ -92,13 +96,22 @@ pipeline {
             }
         }
         success {
-            echo 'Pipeline completed successfully. Notifying team...'
-            // Example curl command to send a success webhook (e.g., to Teams or Slack)
-            bat 'curl -X POST "https://example.com" -d "status=success"'
+            script {
+                if (env.WORKSPACE) {
+                    echo 'Pipeline completed successfully. Notifying team...'
+                    // Optional: send webhook notification (wrapped in workspace check)
+                    bat 'curl -X POST "https://example.com" -d "status=success"'
+                }
+            }
         }
         failure {
-            echo 'Pipeline failed. Checking logs...'
-            bat 'curl -X POST "https://example.com" -d "status=failed"'
+            script {
+                if (env.WORKSPACE) {
+                    echo 'Pipeline failed. Checking logs...'
+                    // Optional: send webhook notification (wrapped in workspace check)
+                    bat 'curl -X POST "https://example.com" -d "status=failed"'
+                }
+            }
         }
     }
 }
