@@ -1,5 +1,13 @@
 pipeline {
-    agent any
+    agent { label 'windows' }
+    
+     environment {
+        // Define directory paths using Windows format
+        SCREENSHOT_DIR = "build\\screenshots"
+        LOG_DIR        = "build\\logs"
+        REPORT_DIR     = "build\\reports"
+    }
+
 
     parameters {
         // Allows you to pass specific Cucumber tags (e.g., @Smoke, @Regression, or not @WIP)
@@ -22,21 +30,31 @@ pipeline {
 
         stage('Create Directories') {
             steps {
-                bat 'mkdir -p Screenshots'
-                bat 'mkdir -p Logs'
+               echo 'Creating required directories...'
+                // 'if not exist' prevents errors if the folders already exist
+                bat """
+                    if not exist "${SCREENSHOT_DIR}" mkdir "${SCREENSHOT_DIR}"
+                    if not exist "${LOG_DIR}" mkdir "${LOG_DIR}"
+                    if not exist "${REPORT_DIR}" mkdir "${REPORT_DIR}"
+                """
+
             }
         }
 
         stage('Build') {
             steps {
+                echo 'Compiling and building the project...'
+                // Replace with your actual build command (e.g., mvn clean package, npm run build)
                 bat 'mvn clean compile'
             }
         }
 
         stage('Test') {
             steps {
-                // Dynamically injects the tags into the Maven test execution
+                echo 'Running automated tests...'
+                // Example of running tests and redirecting logs to your log directory
                 bat "mvn test -Dcucumber.filter.tags=\"${params.CUCUMBER_TAGS}\" -Dmaven.test.failure.ignore=true"
+
             }
         }
 
@@ -54,7 +72,7 @@ pipeline {
             }
         }
         
-    }
+    
     
      post {
         always {
