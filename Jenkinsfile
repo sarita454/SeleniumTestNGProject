@@ -1,5 +1,7 @@
 pipeline {
-    agent { label 'windows' }
+    // Use a generic agent so the pipeline doesn't fail if a 'windows' labeled node
+    // is not present. Change to a specific label if your Jenkins has a Windows agent.
+    agent any
     
     environment {
         // Define directory paths using Windows format
@@ -20,8 +22,14 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    checkout poll: false, scm: scmGit(branches: [[name: '*/main']],
-                     extensions: [], userRemoteConfigs: [[url: 'https://github.com/sarita454/SeleniumTestNGProject.git']])
+                    // Prefer the built-in 'git' step - use credentials only when provided.
+                    if (params.GIT_CREDENTIALS_ID?.trim()) {
+                        echo "Checking out repository with credentials id: ${params.GIT_CREDENTIALS_ID}"
+                        git branch: 'main', url: 'https://github.com/sarita454/SeleniumTestNGProject.git', credentialsId: params.GIT_CREDENTIALS_ID
+                    } else {
+                        echo 'Checking out repository without credentials'
+                        git branch: 'main', url: 'https://github.com/sarita454/SeleniumTestNGProject.git'
+                    }
                 }
             }
         } // This brace was previously closing the entire 'stages' block by mistake!
@@ -70,9 +78,18 @@ pipeline {
         
     post {
         always {
-            echo 'Archiving test artifacts...'
-            // Native Jenkins step to save your screenshots, logs, and reports
-            archiveArtifacts artifacts: 'build/**/*', allowEmptyArchive: true
+            // archiveArtifacts requires a workspace (hudson.FilePath). When the pipeline
+            // was never allocated a node (e.g. no matching label), this step fails
+            // with MissingContextVariableException. Guard with a check for WORKSPACE.
+            script {
+                if (env.WORKSPACE) {
+                    echo 'Archiving test artifacts...'
+                    // Native Jenkins step to save your screenshots, logs, and reports
+                    archiveArtifacts artifacts: 'build/**/*', allowEmptyArchive: true
+                } else {
+                    echo 'No workspace available - skipping archiveArtifacts'
+                }
+            }
         }
         success {
             echo 'Pipeline completed successfully. Notifying team...'
