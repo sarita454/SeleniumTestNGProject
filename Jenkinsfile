@@ -1,0 +1,77 @@
+pipeline {
+    agent any
+
+    parameters {
+        // Allows you to pass specific Cucumber tags (e.g., @Smoke, @Regression, or not @WIP)
+        string(name: 'CUCUMBER_TAGS', defaultValue: '@Smoke', description: 'Enter Cucumber tags to run')
+        // This pipeline checks out the main branch only.
+        // Optional: credentials id configured in Jenkins for accessing the git repo
+        string(name: 'GIT_CREDENTIALS_ID', defaultValue: 'sarita454', description: 'Optional: Jenkins credentialsId to use for git checkout')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    checkout poll: false, scm: scmGit(branches: [[name: '*/main']],
+                     extensions: [], userRemoteConfigs: [[url: 'https://github.com/sarita454/SeleniumTestNGProject.git']])
+                }
+            }
+        }
+        }
+
+        stage('Create Directories') {
+            steps {
+                bat 'mkdir -p Screenshots'
+                bat 'mkdir -p Logs'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                bat 'mvn clean compile'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                // Dynamically injects the tags into the Maven test execution
+                bat "mvn test -Dcucumber.filter.tags=\"${params.CUCUMBER_TAGS}\" -Dmaven.test.failure.ignore=true"
+            }
+        }
+
+        stage('Publish Reports') {
+            steps {
+                echo 'Generating test and coverage reports...'
+                // Example using Windows curl to fetch a report template or notify a dashboard
+                // Escaped double quotes (\\\") are required for Windows cmd JSON payloads
+                bat """
+                    curl -X POST "https://example.com" ^
+                    -H "Content-Type: application/json" ^
+                    -d "{\\\"buildNumber\\\":\\\"${BUILD_NUMBER}\\\"}"
+                """
+
+            }
+        }
+        
+    }
+    
+     post {
+        always {
+            echo 'Archiving test artifacts...'
+            // Native Jenkins step to save your screenshots, logs, and reports
+            archiveArtifacts artifacts: 'build/**/*', allowEmptyArchive: true
+        }
+        success {
+            echo 'Pipeline completed successfully. Notifying team...'
+            // Example curl command to send a success webhook (e.g., to Teams or Slack)
+            bat 'curl -X POST "https://example.com" -d "status=success"'
+        }
+        failure {
+            echo 'Pipeline failed. Checking logs...'
+            bat 'curl -X POST "https://example.com" -d "status=failed"'
+        }
+    }
+}
+
+}

@@ -83,7 +83,7 @@ public class BaseClass {
 				options.addArguments("--remote-allow-origins=*");
 				if (headless) options.addArguments("--headless=new");
 				// recommended options for reliability in CI
-				options.addArguments("--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage");
+				options.addArguments("--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage", "--window-size=1920,1080");
 				driver = new ChromeDriver(options);
 				break;
 		}
