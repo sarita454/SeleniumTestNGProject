@@ -1,13 +1,12 @@
 pipeline {
     agent { label 'windows' }
     
-     environment {
+    environment {
         // Define directory paths using Windows format
         SCREENSHOT_DIR = "build\\screenshots"
         LOG_DIR        = "build\\logs"
         REPORT_DIR     = "build\\reports"
     }
-
 
     parameters {
         // Allows you to pass specific Cucumber tags (e.g., @Smoke, @Regression, or not @WIP)
@@ -25,19 +24,17 @@ pipeline {
                      extensions: [], userRemoteConfigs: [[url: 'https://github.com/sarita454/SeleniumTestNGProject.git']])
                 }
             }
-        }
-        }
+        } // This brace was previously closing the entire 'stages' block by mistake!
 
         stage('Create Directories') {
             steps {
-               echo 'Creating required directories...'
+                echo 'Creating required directories...'
                 // 'if not exist' prevents errors if the folders already exist
                 bat """
                     if not exist "${SCREENSHOT_DIR}" mkdir "${SCREENSHOT_DIR}"
                     if not exist "${LOG_DIR}" mkdir "${LOG_DIR}"
                     if not exist "${REPORT_DIR}" mkdir "${REPORT_DIR}"
                 """
-
             }
         }
 
@@ -54,7 +51,6 @@ pipeline {
                 echo 'Running automated tests...'
                 // Example of running tests and redirecting logs to your log directory
                 bat "mvn test -Dcucumber.filter.tags=\"${params.CUCUMBER_TAGS}\" -Dmaven.test.failure.ignore=true"
-
             }
         }
 
@@ -68,13 +64,11 @@ pipeline {
                     -H "Content-Type: application/json" ^
                     -d "{\\\"buildNumber\\\":\\\"${BUILD_NUMBER}\\\"}"
                 """
-
             }
         }
+    } // The stages block now correctly closes here, encompassing all steps.
         
-    
-    
-     post {
+    post {
         always {
             echo 'Archiving test artifacts...'
             // Native Jenkins step to save your screenshots, logs, and reports
@@ -90,6 +84,4 @@ pipeline {
             bat 'curl -X POST "https://example.com" -d "status=failed"'
         }
     }
-}
-
 }
